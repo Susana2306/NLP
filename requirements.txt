@@ -8,3 +8,6 @@ tf-keras
 gTTS>=2.5.0
 click>=7.1,<8.2
 PyMuPDF>=1.24.0
+python-crfsuite>=0.9.7
+sentencepiece>=0.1.99
+datasets>=2.0.0
