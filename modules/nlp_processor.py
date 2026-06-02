@@ -2,22 +2,23 @@ import re
 
 from transformers import pipeline
 
-_ner = pipeline(
-    "ner",
-    model="mrm8488/bert-spanish-cased-finetuned-ner",
-    aggregation_strategy="simple",
-)
+from modules.ner_crf import extract_entities_crf
 
 _summarizer = pipeline(
     "summarization",
     model="sshleifer/distilbart-cnn-12-6",
 )
 
-_LABEL_ES = {
-    "PER":  "Persona",
-    "ORG":  "Organización",
-    "LOC":  "Lugar",
-}
+_translator = None
+
+def _get_translator():
+    global _translator
+    if _translator is None:
+        _translator = pipeline(
+            "translation",
+            model="Helsinki-NLP/opus-mt-es-en",
+        )
+    return _translator
 
 _DATE_RE = re.compile(
     r"\b\d{1,2}\s+de\s+\w+|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
@@ -28,26 +29,12 @@ _TIME_RE = re.compile(
     re.IGNORECASE,
 )
 
-
-_NER_MAX_WORDS   = 400
-
 _SUMM_MAX_WORDS  = 700
-
 _SUMM_MIN_WORDS  = 40
 
 
 def extract_entities(text: str) -> dict[str, list[str]]:
-
-    words = text.split()
-    chunk = " ".join(words[:_NER_MAX_WORDS]) if len(words) > _NER_MAX_WORDS else text
-
-    entities: dict[str, list[str]] = {}
-
-    for ent in _ner(chunk):
-        label = _LABEL_ES.get(ent["entity_group"])
-        word  = ent["word"].replace("##", "").strip()
-        if label and word:
-            entities.setdefault(label, []).append(word)
+    entities = extract_entities_crf(text)
 
     for match in _DATE_RE.findall(text):
         entities.setdefault("Fecha", []).append(match)
@@ -55,6 +42,32 @@ def extract_entities(text: str) -> dict[str, list[str]]:
         entities.setdefault("Hora", []).append(match)
 
     return {k: list(dict.fromkeys(v)) for k, v in entities.items()}
+
+
+_TRANS_MAX_WORDS = 400
+
+
+def translate(text: str) -> str:
+    translator = _get_translator()
+    words = text.split()
+
+    if not words:
+        return text
+
+    chunks = [
+        " ".join(words[i : i + _TRANS_MAX_WORDS])
+        for i in range(0, len(words), _TRANS_MAX_WORDS)
+    ]
+
+    translated_chunks = []
+    for chunk in chunks:
+        try:
+            result = translator(chunk, max_length=512)
+            translated_chunks.append(result[0]["translation_text"])
+        except Exception:
+            translated_chunks.append(chunk)
+
+    return " ".join(translated_chunks)
 
 
 def summarize(text: str, num_sentences: int = 3) -> str:

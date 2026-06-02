@@ -3,7 +3,7 @@ import base64
 from flask import Flask, jsonify, render_template, request
 from PIL import Image
 
-from modules.nlp_processor import extract_entities, summarize
+from modules.nlp_processor import extract_entities, summarize, translate
 from modules.ocr import clean_text, extract_text, extract_text_from_pdf
 from modules.tts import text_to_audio
 
@@ -29,6 +29,7 @@ def process():
 
     lang = request.form.get("lang", "spa")
     num_sentences = int(request.form.get("num_sentences", 3))
+    do_translate = request.form.get("translate") == "1"
     is_pdf = file.filename.lower().endswith(".pdf")
 
     try:
@@ -48,6 +49,7 @@ def process():
 
     entities = extract_entities(cleaned)
     summary = summarize(cleaned, num_sentences=num_sentences)
+    translated_text = translate(cleaned) if do_translate else ""
 
     narration = ""
     if entities:
@@ -68,6 +70,7 @@ def process():
         "cleaned_text": cleaned,
         "entities": entities,
         "summary": summary,
+        "translated_text": translated_text,
         "audio_text": audio_text,
         "audio_entities": audio_entities,
         "audio_summary": audio_summary,

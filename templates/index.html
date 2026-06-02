@@ -105,6 +105,15 @@
       grid-template-columns: 1fr 1fr;
       gap: 1rem;
     }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-top: .75rem;
+      font-size: .95rem;
+      font-weight: 600;
+    }
+    .checkbox-row input[type="checkbox"] { width: 1.1rem; height: 1.1rem; cursor: pointer; }
     @media (max-width: 520px) { .settings-grid { grid-template-columns: 1fr; } }
 
     label { display: block; font-size: .9rem; font-weight: 600; margin-bottom: .35rem; }
@@ -311,6 +320,10 @@
         </div>
       </div>
     </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="chk-translate" />
+      <label for="chk-translate" style="margin:0">Traducir al inglés (ES → EN)</label>
+    </div>
   </div>
 
   <button id="btn-process" disabled>
@@ -328,6 +341,7 @@
       <button class="tab-btn active" role="tab" aria-selected="true"  data-tab="tab-text">📝 Texto</button>
       <button class="tab-btn"        role="tab" aria-selected="false" data-tab="tab-ents">🏷️ Entidades</button>
       <button class="tab-btn"        role="tab" aria-selected="false" data-tab="tab-summary">📋 Resumen</button>
+      <button class="tab-btn"        role="tab" aria-selected="false" data-tab="tab-translation" id="tab-btn-translation" style="display:none">🌐 Traducción</button>
     </div>
 
     <div id="tab-text" class="tab-panel active" role="tabpanel">
@@ -356,6 +370,10 @@
         <p>🔊 Escuchar resumen</p>
         <audio id="audio-summary" controls></audio>
       </div>
+    </div>
+
+    <div id="tab-translation" class="tab-panel" role="tabpanel">
+      <div class="content-box" id="translation-content"></div>
     </div>
 
   </div>
@@ -459,6 +477,7 @@
     form.append('file', selectedFile);
     form.append('lang', document.getElementById('sel-lang').value);
     form.append('num_sentences', rangeSent.value);
+    form.append('translate', document.getElementById('chk-translate').checked ? '1' : '0');
 
     try {
       const resp = await fetch('/process', { method: 'POST', body: form });
@@ -523,6 +542,14 @@
 
     document.getElementById('summary-content').textContent = data.summary;
     setAudio('audio-summary', data.audio_summary);
+
+    const tabTranslation = document.getElementById('tab-btn-translation');
+    if (data.translated_text) {
+      document.getElementById('translation-content').textContent = data.translated_text;
+      tabTranslation.style.display = 'inline-block';
+    } else {
+      tabTranslation.style.display = 'none';
+    }
 
     results.style.display = 'block';
     results.scrollIntoView({ behavior: 'smooth' });
