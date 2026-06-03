@@ -3,16 +3,27 @@ import base64
 from flask import Flask, jsonify, render_template, request
 from PIL import Image
 
+from modules.generator import PoetryGenerator
 from modules.nlp_processor import extract_entities, summarize, translate
 from modules.ocr import clean_text, extract_text, extract_text_from_pdf
 from modules.tts import text_to_audio
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024 
+
+_gen = PoetryGenerator()
+_load_error: str = ""
+try:
+    _gen.load()
+    print(f"[generator] Model loaded — {len(_gen.list_authors())} authors available.")
+except Exception as e:
+    import traceback
+    _load_error = traceback.format_exc()
+    print(f"[generator] Failed to load model:\n{_load_error}")
 
 
-def _audio_b64(text: str) -> str:
-    buf = text_to_audio(text)
+def _audio_b64(text: str, lang: str = "es") -> str:
+    buf = text_to_audio(text, lang=lang)
     return base64.b64encode(buf.read()).decode("utf-8")
 
 
@@ -77,5 +88,47 @@ def process():
     })
 
 
+@app.route("/authors")
+def get_authors():
+    return jsonify({
+        "authors": _gen.list_authors() if _gen.is_ready else [],
+        "ready": _gen.is_ready,
+        "load_error": _load_error,
+    })
+
+
+@app.route("/generate", methods=["POST"])
+def generate():
+    if not _gen.is_ready:
+        return jsonify({
+            "error": "El modelo no está disponible. Ejecuta `python train.py` y reinicia la app."
+        }), 503
+
+    data = request.get_json(force=True, silent=True) or {}
+    speech = data.get("speech", "")
+    author = data.get("author") or _gen.find_author(speech)
+
+    if not author:
+        sample = ", ".join(_gen.list_authors()[:5])
+        return jsonify({
+            "error": f"No se encontró el autor en tu solicitud. Ejemplos: {sample}…"
+        }), 400
+
+    try:
+        temperature = max(0.05, min(float(data.get("temperature", 0.5)), 0.8))
+        poem = _gen.generate_poem(author=author, num_chars=300, temperature=temperature)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return jsonify({"error": f"Error al generar poema: {exc}"}), 500
+
+    try:
+        audio = _audio_b64(poem)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return jsonify({"author": author, "poem": poem, "audio": ""})
+
+    return jsonify({"author": author, "poem": poem, "audio": audio})
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

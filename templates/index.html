@@ -267,6 +267,153 @@
     }
     #raw-box { display: none; }
     #raw-box .content-box { font-size: .85rem; color: var(--muted); }
+
+    /* ── Poetry Generator ── */
+    .mic-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 4rem; height: 4rem;
+      border-radius: 50%;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-size: 1.6rem;
+      cursor: pointer;
+      transition: background .2s, transform .15s;
+      flex-shrink: 0;
+    }
+    .mic-btn:hover { background: var(--primary-dark); }
+    .mic-btn.recording {
+      background: var(--error);
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.12); }
+    }
+    .mic-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    #speech-transcript {
+      flex: 1;
+      min-width: 0;
+      padding: .55rem .85rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: .95rem;
+      font-style: italic;
+      min-height: 2.4rem;
+      word-break: break-word;
+    }
+    .gen-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    @media (max-width: 520px) { .gen-controls { grid-template-columns: 1fr; } }
+
+    #btn-generate {
+      width: 100%;
+      padding: .75rem 1rem;
+      background: var(--success);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background .2s;
+      margin-top: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+    }
+    #btn-generate:hover:not(:disabled) { filter: brightness(1.1); }
+    #btn-generate:disabled { opacity: .6; cursor: not-allowed; }
+
+    #poem-result { display: none; margin-top: 1.25rem; }
+    #poem-author-label {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: .5rem;
+    }
+    #poem-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      font-size: 1rem;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Georgia, serif;
+    }
+    .model-hint {
+      font-size: .82rem;
+      color: var(--muted);
+      margin-top: .4rem;
+    }
+
+    .authors-toggle {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .45rem .85rem;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--primary);
+      cursor: pointer;
+      margin-top: 1rem;
+      width: 100%;
+      text-align: left;
+      transition: background .15s;
+    }
+    .authors-toggle:hover { background: #ede8df; }
+    .authors-toggle .arrow { margin-left: auto; transition: transform .2s; }
+    .authors-toggle.open .arrow { transform: rotate(180deg); }
+
+    #authors-panel {
+      display: none;
+      margin-top: .5rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      background: var(--bg);
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    #authors-panel.open { display: block; }
+    .authors-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: .25rem .75rem;
+      list-style: none;
+    }
+    .authors-grid li {
+      font-size: .85rem;
+      color: var(--text);
+      padding: .15rem 0;
+      border-bottom: 1px solid #ede8df;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .authors-grid li:hover { color: var(--primary); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -376,6 +523,63 @@
       <div class="content-box" id="translation-content"></div>
     </div>
 
+  </div>
+
+  <!-- ── Poetry Generator Card ── -->
+  <div class="card">
+    <h2>4 · Generador de poemas con IA</h2>
+
+    <!-- Model status badge -->
+    <div id="model-status-badge" style="margin-bottom:1.1rem;font-size:.9rem;font-weight:600;color:var(--muted);">
+      ⏳ Cargando modelo…
+    </div>
+
+    <!-- Mic + transcript -->
+    <p style="font-size:.9rem;font-weight:600;margin-bottom:.6rem;">
+      🎙️ Di: <em>"Genera un poema al estilo de Pablo Neruda"</em>
+    </p>
+    <div class="mic-row">
+      <button class="mic-btn" id="btn-mic" title="Pulsa para hablar" disabled>🎙️</button>
+      <div id="speech-transcript">Pulsa el micrófono y habla…</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="gen-controls">
+      <div>
+        <label for="sel-author">Autor</label>
+        <select id="sel-author" disabled>
+          <option value="">— detectar desde voz —</option>
+        </select>
+      </div>
+      <div>
+        <label for="range-temp">Creatividad (temperatura)</label>
+        <div class="range-row">
+          <input type="range" id="range-temp" min="0.05" max="0.8" step="0.05" value="0.5" />
+          <span class="range-val" id="temp-val">0.50</span>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-generate" disabled>✨ Generar poema</button>
+    <p class="model-hint">El texto es generado carácter a carácter por una RNN (GRU).</p>
+
+    <button class="authors-toggle" id="btn-authors-toggle" style="display:none">
+      📚 Ver autores disponibles <span id="authors-count"></span>
+      <span class="arrow">▼</span>
+    </button>
+    <div id="authors-panel">
+      <ul class="authors-grid" id="authors-list"></ul>
+    </div>
+
+    <!-- Result -->
+    <div id="poem-result">
+      <div id="poem-author-label"></div>
+      <div id="poem-box"></div>
+      <div class="audio-wrap" style="margin-top:.75rem;">
+        <p>🔊 Escuchar poema</p>
+        <audio id="audio-poem" controls></audio>
+      </div>
+    </div>
   </div>
 
 </main>
@@ -612,6 +816,222 @@
     if (b < 1048576)   return (b / 1024).toFixed(1) + ' KB';
     return (b / 1048576).toFixed(1) + ' MB';
   }
+
+  /* ============================================================
+     Poetry Generator
+  ============================================================ */
+  const btnAuthorsToggle = document.getElementById('btn-authors-toggle');
+  const authorsPanel     = document.getElementById('authors-panel');
+  const authorsList      = document.getElementById('authors-list');
+  const authorsCount     = document.getElementById('authors-count');
+  const modelBadge       = document.getElementById('model-status-badge');
+
+  btnAuthorsToggle.addEventListener('click', () => {
+    const open = authorsPanel.classList.toggle('open');
+    btnAuthorsToggle.classList.toggle('open', open);
+  });
+
+  const btnMic        = document.getElementById('btn-mic');
+  const transcript    = document.getElementById('speech-transcript');
+  const selAuthor     = document.getElementById('sel-author');
+  const rangeTemp     = document.getElementById('range-temp');
+  const tempVal       = document.getElementById('temp-val');
+  const btnGenerate   = document.getElementById('btn-generate');
+  const poemResult    = document.getElementById('poem-result');
+  const poemAuthorLbl = document.getElementById('poem-author-label');
+  const poemBox       = document.getElementById('poem-box');
+  const audioPoemEl   = document.getElementById('audio-poem');
+
+  rangeTemp.addEventListener('input', () => {
+    tempVal.textContent = parseFloat(rangeTemp.value).toFixed(2);
+  });
+
+  /* ── Load authors & show model status ── */
+  let modelReady = false;
+
+  async function refreshStatus() {
+    try {
+      const r = await fetch('/authors');
+      const d = await r.json();
+      modelReady = d.ready;
+
+      selAuthor.innerHTML = '<option value="">— detectar desde voz —</option>';
+      authorsList.innerHTML = '';
+      d.authors.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a;
+        opt.textContent = a;
+        selAuthor.appendChild(opt);
+
+        const li = document.createElement('li');
+        li.textContent = a;
+        li.title = a;
+        li.addEventListener('click', () => {
+          selAuthor.value = a;
+          authorsPanel.classList.remove('open');
+          btnAuthorsToggle.classList.remove('open');
+        });
+        authorsList.appendChild(li);
+      });
+
+      if (modelReady) {
+        modelBadge.textContent = '✅ Modelo listo · ' + d.authors.length + ' autores disponibles';
+        modelBadge.style.color = 'var(--success)';
+        btnMic.disabled = false;
+        btnGenerate.disabled = false;
+        selAuthor.disabled = false;
+        if (d.authors.length) {
+          authorsCount.textContent = `(${d.authors.length})`;
+          btnAuthorsToggle.style.display = 'flex';
+        }
+      } else {
+        modelBadge.textContent = '⚠️ Modelo no disponible — ejecuta python train.py y reinicia la app.';
+        modelBadge.style.color = 'var(--error)';
+      }
+    } catch {
+      modelBadge.textContent = '⚠️ No se pudo verificar el estado del modelo.';
+      modelBadge.style.color = 'var(--error)';
+    }
+  }
+
+  refreshStatus();
+
+  /* ── Web Speech API ── */
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition  = null;
+  let isRecording  = false;
+  let micBlocked   = false;   // debounce: ignore clicks while transitioning
+  let lastSpeech   = '';
+
+  function setMicState(recording) {
+    isRecording = recording;
+    btnMic.classList.toggle('recording', recording);
+    btnMic.textContent = recording ? '⏹️' : '🎙️';
+    btnMic.title = recording ? 'Clic para detener' : 'Clic para hablar';
+  }
+
+  if (!SpeechRec) {
+    btnMic.style.opacity = '.45';
+    btnMic.disabled = true;
+    transcript.innerHTML = '<span style="color:var(--error)">⚠️ Reconocimiento de voz no disponible — usa Chrome. Selecciona el autor manualmente.</span>';
+  } else {
+    recognition = new SpeechRec();
+    recognition.lang = 'es-ES';
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = false;
+
+    /* ── Resultados en tiempo real ── */
+    recognition.addEventListener('result', e => {
+      let finalText = '', interimText = '';
+      for (const result of e.results) {
+        if (result.isFinal) finalText   += result[0].transcript;
+        else                interimText += result[0].transcript;
+      }
+      transcript.innerHTML =
+        (finalText   ? `<span style="color:var(--text)">${finalText}</span>` : '') +
+        (interimText ? `<span style="color:var(--muted);font-style:italic">${interimText}</span>` : '');
+      if (finalText) lastSpeech = finalText;
+    });
+
+    /* ── Fin de sesión (por silencio o por stop manual) ── */
+    recognition.addEventListener('end', () => {
+      setMicState(false);
+      micBlocked = false;
+      if (lastSpeech) {
+        transcript.innerHTML = `<span style="color:var(--text)">✔ ${lastSpeech}</span>`;
+        const found = findAuthorInText(lastSpeech);
+        if (found) selAuthor.value = found;
+      } else {
+        transcript.innerHTML = '<span style="color:var(--muted);font-style:italic">No se detectó voz. Intenta de nuevo.</span>';
+      }
+    });
+
+    /* ── Error de micrófono ── */
+    recognition.addEventListener('error', e => {
+      setMicState(false);
+      micBlocked = false;
+      const msgs = {
+        'not-allowed':  '⚠️ Permiso de micrófono denegado. Habilítalo en la configuración del navegador.',
+        'no-speech':    'No se detectó voz. Intenta de nuevo.',
+        'network':      '⚠️ Error de red en reconocimiento de voz.',
+      };
+      transcript.innerHTML = `<span style="color:var(--error)">${msgs[e.error] || 'Error: ' + e.error}</span>`;
+    });
+
+    /* ── Click: toggle abre / cierra ── */
+    btnMic.addEventListener('click', () => {
+      if (!modelReady || micBlocked) return;
+      micBlocked = true;                      // bloquear hasta que el estado cambie
+
+      if (isRecording) {
+        recognition.stop();                   // → dispara 'end' → setMicState(false)
+      } else {
+        lastSpeech = '';
+        transcript.innerHTML = '<span style="color:var(--muted);font-style:italic">🎙️ Escuchando…</span>';
+        try {
+          recognition.start();
+          setMicState(true);
+        } catch {
+          // recognition ya estaba activo — sincronizar estado
+          setMicState(false);
+        }
+        micBlocked = false;
+      }
+    });
+  }
+
+  /* Simple client-side author matching for immediate feedback */
+  function findAuthorInText(text) {
+    const q = text.toLowerCase();
+    for (let i = 0; i < selAuthor.options.length; i++) {
+      const opt = selAuthor.options[i];
+      if (!opt.value) continue;
+      const parts = opt.value.toLowerCase().split(/\s+/);
+      if (parts.some(p => p.length > 3 && q.includes(p))) return opt.value;
+    }
+    return null;
+  }
+
+  /* ── Generate poem ── */
+  btnGenerate.addEventListener('click', async () => {
+    if (!modelReady) return;
+
+    btnGenerate.disabled = true;
+    btnGenerate.textContent = '⏳ Generando…';
+    poemResult.style.display = 'none';
+
+    const payload = {
+      speech: lastSpeech,
+      author: selAuthor.value || null,
+      temperature: parseFloat(rangeTemp.value),
+    };
+
+    try {
+      const r = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+
+      if (!r.ok) {
+        alert(d.error || 'Error al generar el poema.');
+        return;
+      }
+
+      poemAuthorLbl.textContent = '✍️ Al estilo de: ' + d.author;
+      poemBox.textContent = d.poem;
+      audioPoemEl.src = 'data:audio/mp3;base64,' + d.audio;
+      poemResult.style.display = 'block';
+      poemResult.scrollIntoView({ behavior: 'smooth' });
+    } catch {
+      alert('Error de red al contactar el servidor.');
+    } finally {
+      btnGenerate.disabled = false;
+      btnGenerate.textContent = '✨ Generar poema';
+    }
+  });
 </script>
 </body>
 </html>

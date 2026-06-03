@@ -2,7 +2,6 @@ import random
 
 random.seed(42)
 
-# ── Vocabulario colombiano ────────────────────────────────────────────────────
 
 NOMBRES = [
     "ANGELA", "MARIA", "CARLOS", "JUAN", "DIANA", "LUIS", "ANA", "JOSE",
@@ -105,7 +104,6 @@ NUMS_ESCRITOS = [
     "treinta y uno",
 ]
 
-# ── Primitivos BIO ────────────────────────────────────────────────────────────
 
 def _gen_per():
     n1 = random.randint(1, 2)
@@ -139,7 +137,6 @@ def _join(*parts):
     return toks, labels
 
 
-# ── Plantillas de oraciones ───────────────────────────────────────────────────
 
 def _tmpl_certifica():
     org = _gen_org()
